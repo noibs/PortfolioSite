@@ -1,0 +1,52 @@
+---
+interface Props {
+    label: string;
+    width?: string;
+}
+
+const { label, width } = Astro.props;
+---
+
+<span class="tip">
+    <button class="action" type="button">{label}</button>
+    <span
+        class="card tip__card"
+        role="tooltip"
+        style={width ? `--card-width: ${width}` : undefined}
+    >
+        <slot />
+    </span>
+</span>
+
+<style>
+    .tip {
+        position: relative;
+    }
+
+    .tip:hover .tip__card {
+        opacity: 1;
+        visibility: visible;
+        transform: translateX(-50%) translateY(0);
+        transition-delay: 200ms;
+    }
+
+    .tip:focus-within .tip__card {
+        opacity: 1;
+        visibility: visible;
+        transform: translateX(-50%) translateY(0);
+        transition-delay: 0ms;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .tip__pop {
+            transition:
+                opacity 200ms ease,
+                visibility 200ms;
+            transform: translateX(-50%);
+        }
+        .tip:hover .tip__pop,
+        .tip:focus-within .tip__pop {
+            transform: translateX(-50%);
+        }
+    }
+</style>

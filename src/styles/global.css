@@ -1,0 +1,92 @@
+:root {
+    --bg: #0d0c0b;
+    --text-dim: #8f8b85;
+    --text-bright: #f2f0ec;
+    --font: "Newsreader", var(--font-newsreader), Georgia, serif;
+    --size: clamp(1.15rem, 1rem + 0.7vw, 1.45rem);
+}
+
+a,
+.action {
+  color: var(--text-bright);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+  text-decoration-color: rgba(242, 240, 236, 0.42);
+  transition:
+    text-decoration-color 200ms ease,
+    color 200ms ease;
+}
+
+a { text-decoration-style: solid; }
+
+.action {
+  text-decoration-style: dotted;
+  text-underline-offset: 0.2em;
+  background: none;
+  border: 0;
+  padding: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  a:hover,
+  .action:hover { text-decoration-color: var(--text-bright); }
+}
+
+a:focus-visible,
+.action:focus-visible {
+  outline: 1px solid var(--text-dim);
+  outline-offset: 3px;
+  border-radius: 1px;
+  text-decoration-color: var(--text-bright);
+}
+
+::selection {
+    background: rgba(242, 240, 236, 0.14);
+}
+
+.card {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 50%;
+
+  width: var(--card-width, max-content);
+  max-width: min(280px, calc(100vw - 2rem));
+  padding: var(--card-padding, 14px 16px 12px);
+
+  background: rgba(38, 36, 34, 0.55);
+  backdrop-filter: blur(6px) saturate(1.4);
+  -webkit-backdrop-filter: blur(6px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 13px;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5);
+
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(5px);
+  transition:
+    opacity 200ms ease,
+    transform 200ms cubic-bezier(0.215, 0.61, 0.355, 1),
+    visibility 200ms;
+  transition-delay: 0ms; /* leaving: immediate */
+  z-index: 50;
+  will-change: transform opacity visibility;
+}
+
+.card.is-open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .card.is-open {
+    transform: translateX(-50%);
+    transition: opacity 150ms ease, visibility 150ms;
+  }
+}

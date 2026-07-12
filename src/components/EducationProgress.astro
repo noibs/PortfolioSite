@@ -1,0 +1,218 @@
+---
+const start = "2026-09-01";
+const end = "2031-06-30";
+
+const phases = [
+    { label: "bachelor", years: 3 },
+    { label: "candidate", years: 2 },
+];
+
+const yearStarts = [
+    "2026-09-01",
+    "2027-09-01",
+    "2028-09-01",
+    "2029-09-01",
+    "2030-09-01",
+];
+
+const ms = (iso: string) => new Date(iso).getTime();
+const startMs = ms(start);
+const endMs = ms(end);
+
+const years = yearStarts.map((yStart, i) => {
+    const s = ms(yStart);
+    const e = i + 1 < yearStarts.length ? ms(yearStarts[i + 1]) : endMs;
+    return { s, e, span: e - s };
+});
+
+const phaseOfYear: number[] = [];
+const isPhaseEnd: boolean[] = new Array(years.length).fill(false);
+let cursor = 0;
+
+phases.forEach((p, pi) => {
+    for (let i = 0; i < p.years; i++) phaseOfYear[cursor + 1] = pi;
+    cursor += p.years;
+    if (cursor < years.length) isPhaseEnd[cursor - 1] = true;
+});
+
+const now = Date.now();
+const clamp = (n: number) => Math.min(100, Math.max(0, n));
+const fillOf = (y: { s: number; e: number }) =>
+    clamp((now - y.s) / (y.e - y.s)) * 100;
+
+const totalPct = clamp(((now - startMs) / (endMs - startMs)) * 100);
+const currentYear = years.filter((y) => now >= y.s).length;
+
+const phaseGrow = phases.map((_, pi) =>
+    years.reduce(
+        (sum, y, i) => (phaseOfYear[i] === pi ? sum + y.span : sum),
+        0,
+    ),
+);
+---
+
+<span
+    class="progress"
+    data-progress
+    data-start={start}
+    data-end={end}
+    data-years={JSON.stringify(years.map((y) => ({ s: y.s, e: y.e })))}
+>
+    <span class="progress__head">
+        <span class="progress__year" data-year>
+            {
+                currentYear === 0
+                    ? "not started yet"
+                    : `year ${currentYear} of ${years.length}`
+            }
+        </span>
+        <span class="progress__pct" data-pct>{totalPct.toFixed(1)}%</span>
+    </span>
+
+    <span class="progress__bar">
+        {
+            years.map((y, i) => (
+                <span
+                    class:list={[
+                        "progress__seg",
+                        { "progress__seg--phase-end": isPhaseEnd[i] },
+                    ]}
+                    style={`flex-grow: ${y.span}`}
+                >
+                    <span
+                        class="progress__seg-fill"
+                        data-seg-fill
+                        style={`width: ${fillOf(y).toFixed(1)}%`}
+                    />
+                </span>
+            ))
+        }
+    </span>
+
+    <span class="progress__legend">
+        {
+            phases.map((p, pi) => (
+                <span style={`flex-grow: ${phaseGrow[pi]}`}>{p.label}</span>
+            ))
+        }
+    </span>
+</span>
+
+<style>
+    .progress {
+        display: block;
+    }
+
+    /* year label left, percentage right */
+    .progress__head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 10px;
+        font-size: 0.78rem;
+        line-height: 1;
+    }
+    .progress__year,
+    .progress__pct {
+        color: var(--text-bright, #f2f0ec);
+        font-weight: 500;
+    }
+    .progress__pct {
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* five separate pills rather than one track with lines drawn on it —
+     a gap reads clearly whether the segment is filled or empty */
+    .progress__bar {
+        display: flex;
+        align-items: stretch;
+        gap: 3px;
+        height: 5px;
+    }
+    .progress__seg {
+        position: relative;
+        flex-basis: 0; /* flex-grow alone sets the proportions */
+        border-radius: 3px;
+        background: rgba(242, 240, 236, 0.13);
+        overflow: hidden;
+    }
+    /* a wider break where one phase hands over to the next */
+    .progress__seg--phase-end {
+        margin-right: 7px;
+    }
+
+    .progress__seg-fill {
+        display: block;
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 0;
+        border-radius: 3px;
+        background: var(--text-bright, #f2f0ec);
+        transition: width 700ms cubic-bezier(0.215, 0.61, 0.355, 1);
+    }
+
+    /* labels centered under their phase's share of the bar */
+    .progress__legend {
+        display: flex;
+        gap: 3px;
+        margin-top: 8px;
+        font-size: 0.68rem;
+        letter-spacing: 0.04em;
+        color: #6f6a64;
+        line-height: 1.3;
+    }
+    .progress__legend span {
+        flex-basis: 0;
+        text-align: center;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .progress__seg-fill {
+            transition: none;
+        }
+    }
+</style>
+
+<script>
+    interface YearSpan {
+        s: number;
+        e: number;
+    }
+
+    function updateProgress(root: HTMLElement): void {
+        const start = new Date(root.dataset.start!).getTime();
+        const end = new Date(root.dataset.end!).getTime();
+        const years: YearSpan[] = JSON.parse(root.dataset.years!);
+        const now = Date.now();
+        const clamp = (n: number) => Math.min(100, Math.max(0, n));
+
+        const totalPct = clamp(((now - start) / (end - start)) * 100);
+        const currentYear = years.filter((y) => now >= y.s).length;
+
+        const pctEl = root.querySelector<HTMLElement>("[data-pct]");
+        const yearEl = root.querySelector<HTMLElement>("[data-year]");
+        if (pctEl) pctEl.textContent = `${totalPct.toFixed(1)}%`;
+        if (yearEl) {
+            yearEl.textContent =
+                currentYear === 0
+                    ? "not started yet"
+                    : `year ${currentYear} of ${years.length}`;
+        }
+
+        root.querySelectorAll<HTMLElement>("[data-seg-fill]").forEach(
+            (el, i) => {
+                const y = years[i];
+                const pct = clamp(((now - y.s) / (y.e - y.s)) * 100);
+                el.style.width = "0%";
+                requestAnimationFrame(() => {
+                    el.style.transitionDelay = `${i * 70}ms`; // fills left-to-right
+                    el.style.width = `${pct.toFixed(1)}%`;
+                });
+            },
+        );
+    }
+
+    document
+        .querySelectorAll<HTMLElement>("[data-progress]")
+        .forEach((el) => updateProgress(el));
+</script>

@@ -1,0 +1,81 @@
+---
+interface Props {
+    email: string;
+}
+
+const { email } = Astro.props;
+---
+
+<span class="copy" data-copy data-email={email}>
+    <button class="action" type="button">{email}</button>
+
+    <span class="card copy__card" role="status" aria-live="polite" data-feedback
+    ></span>
+</span>
+
+<style>
+    .copy {
+        position: relative;
+        white-space: nowrap;
+    }
+
+    .copy__card {
+        --card-padding: 7px 12px;
+        font-size: 0.76rem;
+        letter-spacing: 0.02em;
+        color: var(--text-bright, #f2f0ec);
+        text-align: center;
+    }
+
+    .copy__check {
+        display: inline-block;
+        width: 9px;
+        height: 5px;
+        margin-right: 6px;
+        border-left: 1.5px solid currentColor;
+        border-bottom: 1.5px solid currentColor;
+        transform: rotate(-45deg) translateY(-1px);
+        vertical-align: middle;
+    }
+</style>
+
+<script>
+    const HOLD_MS = 1400;
+
+    function initCopy(root: HTMLElement): void {
+        const button = root.querySelector<HTMLButtonElement>("button");
+        const card = root.querySelector<HTMLElement>("[data-feedback]");
+        const email = root.dataset.email;
+        if (!button || !card || !email) return;
+
+        let timer: number | undefined;
+
+        const show = (html: string) => {
+            card.innerHTML = html;
+            card.classList.add("is-open");
+            window.clearTimeout(timer);
+            timer = window.setTimeout(
+                () => card.classList.remove("is-open"),
+                HOLD_MS,
+            );
+        };
+
+        button.addEventListener("click", async () => {
+            try {
+                await navigator.clipboard.writeText(email);
+                show('<span class="copy__check"></span>copied');
+            } catch {
+                // clipboard needs a secure context, and can still be refused —
+                // don't claim success. select the text so they can copy it themselves.
+                const range = document.createRange();
+                range.selectNodeContents(button);
+                const sel = window.getSelection();
+                sel?.removeAllRanges();
+                sel?.addRange(range);
+                show("press ⌘C to copy");
+            }
+        });
+    }
+
+    document.querySelectorAll<HTMLElement>("[data-copy]").forEach(initCopy);
+</script>

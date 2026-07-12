@@ -1,8 +1,131 @@
 ---
-import Main from "../components/Main.astro";
 import Layout from "../layouts/Layout.astro";
+import Tooltip from "../components/Tooltip.astro";
+import EducationProgress from "../components/EducationProgress.astro";
+import CopyEmail from "../components/CopyEmail.astro";
+import "../styles/global.css";
 ---
 
 <Layout>
-    <Main />
+    <div id="container">
+        <main>
+            <section id="hero">
+                <p>
+                    hi, im elliott. a 19-year-old from <button
+                        id="denmark"
+                        class="action">denmark</button
+                    > currently <Tooltip label="studying" width="260px">
+                        <EducationProgress />
+                    </Tooltip> robotics at <a
+                        href="https://www.sdu.dk/en"
+                        target="_blank"
+                        rel="noopener">SDU</a
+                    >. i love coding my own solutions to minor inconveniences i
+                    meet in my daily life, which means i have a graveyard of
+                    half-finished projects and a few that are actually of use.
+                    most of them live on <a
+                        href="https://github.com/noibs"
+                        target="_blank"
+                        rel="noopener">github</a
+                    >. if you want to get in contact with me, shoot me an email
+                    at <CopyEmail email="hi@elliott.hu" />.
+                </p>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        import { initConfetti } from "../scripts/confetti";
+        initConfetti();
+    </script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        #container {
+            margin: 0;
+            height: 100%;
+        }
+
+        main {
+            margin: 0;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            font-family: var(--font);
+            background-color: var(--bg);
+            color: var(--text-dim);
+            line-height: 1.62;
+
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
+        }
+
+        #hero {
+            display: flex;
+            align-items: center;
+            flex-direction: column;
+            justify-content: center;
+            padding: 2rem 1.5rem;
+            max-width: 33rem;
+            text-wrap: pretty;
+            animation: rise 750ms cubic-bezier(0.215, 0.61, 0.355, 1) both;
+        }
+
+        p {
+            font-size: 20px;
+            font-weight: 400;
+            padding: 0;
+            margin: 0;
+        }
+
+        @keyframes rise {
+            from {
+                opacity: 0;
+                filter: blur(4px);
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                filter: blur(0px);
+                transform: none;
+            }
+        }
+
+        :global(.confetti) {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 16px;
+            height: 12px;
+            margin: -6px 0 0 -8px;
+            pointer-events: none;
+            z-index: 999;
+            border-radius: 1px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+            will-change: transform, opacity;
+        }
+
+        :global(.confetti svg) {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        @media screen and (max-width: 768px) {
+            #container {
+                display: flex;
+                flex-direction: column;
+            }
+
+            #hero {
+                display: block;
+                padding-top: 10%;
+            }
+        }
+    </style>
 </Layout>
