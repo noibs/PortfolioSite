@@ -73,7 +73,7 @@ import "../styles/global.css";
             padding: 2rem 1.5rem;
             max-width: 33rem;
             text-wrap: pretty;
-            animation: rise 750ms cubic-bezier(0.215, 0.61, 0.355, 1) both;
+            animation: rise 750ms cubic-bezier(0.215, 0.61, 0.355, 1) backwards;
         }
 
         p {
@@ -90,8 +90,8 @@ import "../styles/global.css";
                 transform: translateY(10px);
             }
             to {
+                filter: blur(0);
                 opacity: 1;
-                filter: blur(0px);
                 transform: none;
             }
         }

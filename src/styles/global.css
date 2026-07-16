@@ -57,13 +57,10 @@ a:focus-visible,
   max-width: min(280px, calc(100vw - 2rem));
   padding: var(--card-padding, 14px 16px 12px);
 
-  background: rgba(38, 36, 34, 0.55);
-  backdrop-filter: blur(16px) saturate(1.4);
-  -webkit-backdrop-filter: blur(16px) saturate(1.4);
-
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 13px;
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5);
+  background: #1a1816;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
 
   opacity: 0;
   visibility: hidden;
@@ -75,7 +72,6 @@ a:focus-visible,
     visibility 200ms;
   transition-delay: 0ms; /* leaving: immediate */
   z-index: 50;
-  will-change: transform opacity visibility;
 }
 
 .card.is-open {
