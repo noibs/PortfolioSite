@@ -56,8 +56,8 @@ a:focus-visible,
   left: 50%;
 
   width: var(--card-width, max-content);
-  max-width: min(280px, calc(100vw - 2rem));
-  padding: var(--card-padding, 14px 16px 12px);
+  max-width: min(var(--card-max-width, 280px), calc(100vw - 2rem));
+  padding: var(--card-padding, 14px);
 
   background: var(--surface);
   border: 1px solid color-mix(in oklch, var(--text-bright) 6%, transparent);
@@ -67,12 +67,12 @@ a:focus-visible,
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transform: translateX(-50%) translateY(5px);
+  transform: translateX(-50%) translateY(5px) scale(0.9);
   transition:
     opacity 200ms ease,
     transform 200ms cubic-bezier(0.215, 0.61, 0.355, 1),
     visibility 200ms;
-  transition-delay: 0ms; /* leaving: immediate */
+  transition-delay: 0ms;
   z-index: 50;
 }
 

@@ -1,0 +1,225 @@
+---
+import Tooltip from "./Tooltip.astro";
+
+interface Props {
+    user: string;
+    label?: string;
+}
+
+const { user, label = "github" } = Astro.props;
+---
+
+<span class="gh" data-gh data-user={user}>
+    <Tooltip label={label} href={`https://github.com/${user}`} maxWidth="440px">
+        <span class="gh__loading" data-loading>fetching activity…</span>
+        <span class="gh__body" data-body hidden>
+            <span class="gh__grid" data-grid aria-hidden="true"></span>
+            <span class="gh__total">
+                <span data-total>0</span> contributions in the past 6 months
+            </span>
+        </span>
+    </Tooltip>
+</span>
+
+<style>
+    .gh__loading:not([hidden]) {
+        display: block;
+        color: var(--text-muted);
+        font-style: italic;
+        font-size: 0.82rem;
+    }
+
+    .gh__body:not([hidden]) {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .gh__grid {
+        --cell: clamp(8px, 0.6vw, 12px);
+        --gap: clamp(2px, 0.15vw, 3px);
+        display: grid;
+        grid-template-rows: repeat(7, var(--cell));
+        grid-auto-flow: column;
+        grid-auto-columns: var(--cell);
+        gap: var(--gap);
+    }
+
+    .gh__grid :global(.gh__cell) {
+        border-radius: 2px;
+        background: oklch(0.24 0.01 60);
+    }
+    .gh__grid :global(.gh__cell[data-level="1"]) {
+        background: oklch(0.38 0.02 60);
+    }
+    .gh__grid :global(.gh__cell[data-level="2"]) {
+        background: oklch(0.55 0.045 55);
+    }
+    .gh__grid :global(.gh__cell[data-level="3"]) {
+        background: oklch(0.72 0.09 60);
+    }
+    .gh__grid :global(.gh__cell[data-level="4"]) {
+        background: oklch(0.86 0.13 70);
+    }
+    .gh__grid :global(.gh__cell.is-empty) {
+        background: transparent;
+    }
+
+    .gh__total {
+        color: var(--text-muted);
+        font-size: 0.72rem;
+        letter-spacing: 0.02em;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+    }
+</style>
+
+<script>
+    const CACHE_TTL = 24 * 60 * 60 * 1000;
+
+    interface DayContrib {
+        date: string;
+        count: number;
+        level: number;
+    }
+
+    interface Cached {
+        ts: number;
+        total: number;
+        days: DayContrib[];
+    }
+
+    const LEVEL_ENUM: Record<string, number> = {
+        NONE: 0,
+        FIRST_QUARTILE: 1,
+        SECOND_QUARTILE: 2,
+        THIRD_QUARTILE: 3,
+        FOURTH_QUARTILE: 4,
+    };
+
+    function readCache(key: string): Cached | null {
+        try {
+            const raw = localStorage.getItem(key);
+            if (!raw) return null;
+            const data = JSON.parse(raw) as Cached;
+            if (Date.now() - data.ts > CACHE_TTL) return null;
+            return data;
+        } catch {
+            return null;
+        }
+    }
+
+    function writeCache(key: string, data: Cached): void {
+        try {
+            localStorage.setItem(key, JSON.stringify(data));
+        } catch {}
+    }
+
+    function normalizeDay(d: any): DayContrib {
+        const count = d.contributionCount ?? d.count ?? 0;
+        let level = 0;
+        if (typeof d.contributionLevel === "number")
+            level = d.contributionLevel;
+        else if (typeof d.level === "number") level = d.level;
+        else if (typeof d.contributionLevel === "string")
+            level = LEVEL_ENUM[d.contributionLevel] ?? 0;
+
+        return { date: d.date, count, level };
+    }
+
+    async function fetchContributions(user: string): Promise<Cached | null> {
+        try {
+            const res = await fetch(
+                `https://github-contributions-api.deno.dev/${user}.json?flat=true`,
+            );
+            if (!res.ok) {
+                console.warn(`[GithubLink] fetch failed: ${res.status}`);
+                return null;
+            }
+            const data = await res.json();
+            const raw = data.contributions;
+            const days: DayContrib[] = Array.isArray(raw)
+                ? Array.isArray(raw[0])
+                    ? raw.flat().map(normalizeDay)
+                    : raw.map(normalizeDay)
+                : [];
+            const total =
+                data.totalContributions ??
+                data.total?.lastYear ??
+                days.reduce((s, d) => s + d.count, 0);
+            return { ts: Date.now(), total, days };
+        } catch (err) {
+            console.warn("[GithubLink] fetch threw:", err);
+            return null;
+        }
+    }
+
+    function render(root: HTMLElement, data: Cached): void {
+        const loading = root.querySelector<HTMLElement>("[data-loading]");
+        const body = root.querySelector<HTMLElement>("[data-body]");
+        const grid = root.querySelector<HTMLElement>("[data-grid]");
+        const total = root.querySelector<HTMLElement>("[data-total]");
+        if (!loading || !body || !grid || !total) return;
+
+        if (data.days.length === 0) {
+            loading.textContent = "no public activity yet";
+            return;
+        }
+
+        const WEEKS = 26;
+        let endIdx = data.days.length - 1;
+        while (endIdx >= 0) {
+            const d = new Date(data.days[endIdx].date + "T00:00:00Z");
+            if (d.getUTCDay() === 6) break;
+            endIdx--;
+        }
+        const startIdx = Math.max(0, endIdx - WEEKS * 7 + 1);
+        const window = data.days.slice(startIdx, endIdx + 1);
+
+        grid.innerHTML = "";
+        for (const day of window) {
+            const cell = document.createElement("i");
+            cell.className = "gh__cell";
+            cell.dataset.level = String(day.level);
+            cell.title = `${day.date}: ${day.count} contribution${day.count === 1 ? "" : "s"}`;
+            grid.appendChild(cell);
+        }
+
+        const windowTotal = window.reduce((s, d) => s + d.count, 0);
+        total.textContent = windowTotal.toLocaleString();
+        loading.hidden = true;
+        body.hidden = false;
+    }
+
+    async function initGh(root: HTMLElement): Promise<void> {
+        const user = root.dataset.user;
+        if (!user) return;
+        const cacheKey = `gh-contribs:${user}`;
+
+        const cached = readCache(cacheKey);
+        if (cached) {
+            render(root, cached);
+            return;
+        }
+
+        let fetched = false;
+        const trigger = async () => {
+            if (fetched) return;
+            fetched = true;
+            const fresh = await fetchContributions(user);
+            if (fresh) {
+                writeCache(cacheKey, fresh);
+                render(root, fresh);
+            } else {
+                const loading =
+                    root.querySelector<HTMLElement>("[data-loading]");
+                if (loading) loading.textContent = "couldn't reach github";
+            }
+        };
+
+        root.addEventListener("pointerenter", trigger, { once: true });
+        root.addEventListener("focusin", trigger, { once: true });
+    }
+
+    document.querySelectorAll<HTMLElement>("[data-gh]").forEach(initGh);
+</script>

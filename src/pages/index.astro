@@ -2,6 +2,7 @@
 import Layout from "../layouts/Layout.astro";
 import Tooltip from "../components/Tooltip.astro";
 import EducationProgress from "../components/EducationProgress.astro";
+import GithubLink from "../components/GithubLink.astro";
 import CopyEmail from "../components/CopyEmail.astro";
 import "../styles/global.css";
 ---
@@ -23,12 +24,10 @@ import "../styles/global.css";
                     >. i love coding my own solutions to minor inconveniences i
                     meet in my daily life, which means i have a graveyard of
                     half-finished projects and a few that are actually of use.
-                    most of them live on <a
-                        href="https://github.com/noibs"
-                        target="_blank"
-                        rel="noopener">github</a
-                    >. if you want to get in contact with me, shoot me an email
-                    at <CopyEmail email="hi@elliott.hu" />.
+                    most of them live on <GithubLink user="noibs" />. if you
+                    want to get in contact with me, shoot me an email at <CopyEmail
+                        email="hi@elliott.hu"
+                    />.
                 </p>
             </section>
         </main>

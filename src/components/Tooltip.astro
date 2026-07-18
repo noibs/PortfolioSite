@@ -1,20 +1,35 @@
 ---
 import "../styles/global.css";
+
 interface Props {
     label: string;
     width?: string;
+    maxWidth?: string;
+    href?: string;
 }
 
-const { label, width } = Astro.props;
+const { label, width, maxWidth, href } = Astro.props;
+
+const styleParts = [
+    width ? `--card-width: ${width}` : "",
+    maxWidth ? `--card-max-width: ${maxWidth}` : "",
+].filter(Boolean);
+const style = styleParts.length ? styleParts.join("; ") : undefined;
 ---
 
 <span class="tip">
-    <button class="action" type="button">{label}</button>
-    <span
-        class="card tip__card"
-        role="tooltip"
-        style={width ? `--card-width: ${width}` : undefined}
-    >
+    {
+        href ? (
+            <a href={href} target="_blank" rel="noopener">
+                {label}
+            </a>
+        ) : (
+            <button class="action" type="button">
+                {label}
+            </button>
+        )
+    }
+    <span class="card tip__card" role="tooltip" style={style}>
         <slot />
     </span>
 </span>
@@ -27,26 +42,27 @@ const { label, width } = Astro.props;
     .tip:hover .tip__card {
         opacity: 1;
         visibility: visible;
-        transform: translateX(-50%) translateY(0);
+        transform: translateX(-50%) translateY(0) scale(1);
         transition-delay: 200ms;
     }
 
     .tip:focus-within .tip__card {
         opacity: 1;
         visibility: visible;
-        transform: translateX(-50%) translateY(0);
+        transform: translateX(-50%) translateY(0) scale(1);
         transition-delay: 0ms;
     }
 
     @media (prefers-reduced-motion: reduce) {
-        .tip__pop {
+        .tip__card {
             transition:
                 opacity 200ms ease,
-                visibility 200ms;
+                visibility 200ms,
+                scale 200ms ease-out;
             transform: translateX(-50%);
         }
-        .tip:hover .tip__pop,
-        .tip:focus-within .tip__pop {
+        .tip:hover .tip__card,
+        .tip:focus-within .tip__card {
             transform: translateX(-50%);
         }
     }
