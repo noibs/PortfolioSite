@@ -202,23 +202,14 @@ const { user, label = "github" } = Astro.props;
             return;
         }
 
-        let fetched = false;
-        const trigger = async () => {
-            if (fetched) return;
-            fetched = true;
-            const fresh = await fetchContributions(user);
-            if (fresh) {
-                writeCache(cacheKey, fresh);
-                render(root, fresh);
-            } else {
-                const loading =
-                    root.querySelector<HTMLElement>("[data-loading]");
-                if (loading) loading.textContent = "couldn't reach github";
-            }
-        };
-
-        root.addEventListener("pointerenter", trigger, { once: true });
-        root.addEventListener("focusin", trigger, { once: true });
+        const fresh = await fetchContributions(user);
+        if (fresh) {
+            writeCache(cacheKey, fresh);
+            render(root, fresh);
+        } else {
+            const loading = root.querySelector<HTMLElement>("[data-loading]");
+            if (loading) loading.textContent = "couldn't reach github";
+        }
     }
 
     document.querySelectorAll<HTMLElement>("[data-gh]").forEach(initGh);

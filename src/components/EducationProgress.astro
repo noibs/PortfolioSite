@@ -1,27 +1,22 @@
 ---
-const start = "2026-09-01";
-const end = "2031-06-30";
-
 const phases = [
     { label: "bachelor", years: 3 },
     { label: "candidate", years: 2 },
 ];
 
-const yearStarts = [
-    "2026-09-01",
-    "2027-09-01",
-    "2028-09-01",
-    "2029-09-01",
-    "2030-09-01",
+const yearRanges = [
+    { s: "2026-09-01", e: "2027-06-30" },
+    { s: "2027-09-01", e: "2028-06-30" },
+    { s: "2028-09-01", e: "2029-06-30" },
+    { s: "2029-09-01", e: "2030-06-30" },
+    { s: "2030-09-01", e: "2031-06-30" },
 ];
 
 const ms = (iso: string) => new Date(iso).getTime();
-const startMs = ms(start);
-const endMs = ms(end);
 
-const years = yearStarts.map((yStart, i) => {
-    const s = ms(yStart);
-    const e = i + 1 < yearStarts.length ? ms(yearStarts[i + 1]) : endMs;
+const years = yearRanges.map((r) => {
+    const s = ms(r.s);
+    const e = ms(r.e);
     return { s, e, span: e - s };
 });
 
@@ -40,7 +35,7 @@ const clamp = (n: number) => Math.min(100, Math.max(0, n));
 const fillOf = (y: { s: number; e: number }) =>
     clamp((now - y.s) / (y.e - y.s)) * 100;
 
-const totalPct = clamp(((now - startMs) / (endMs - startMs)) * 100);
+const totalPct = years.reduce((sum, y) => sum + fillOf(y), 0) / years.length;
 const currentYear = years.filter((y) => now >= y.s).length;
 
 const phaseGrow = phases.map((_, pi) =>
@@ -54,8 +49,6 @@ const phaseGrow = phases.map((_, pi) =>
 <span
     class="progress"
     data-progress
-    data-start={start}
-    data-end={end}
     data-years={JSON.stringify(years.map((y) => ({ s: y.s, e: y.e })))}
 >
     <span class="progress__head">
@@ -82,7 +75,7 @@ const phaseGrow = phases.map((_, pi) =>
                     <span
                         class="progress__seg-fill"
                         data-seg-fill
-                        style={`width: ${fillOf(y).toFixed(1)}%`}
+                        style={`transform: scaleX(${(fillOf(y) / 100).toFixed(4)})`}
                     />
                 </span>
             ))
@@ -103,7 +96,6 @@ const phaseGrow = phases.map((_, pi) =>
         display: block;
     }
 
-    /* year label left, percentage right */
     .progress__head {
         display: flex;
         justify-content: space-between;
@@ -121,8 +113,6 @@ const phaseGrow = phases.map((_, pi) =>
         font-variant-numeric: tabular-nums;
     }
 
-    /* five separate pills rather than one track with lines drawn on it —
-     a gap reads clearly whether the segment is filled or empty */
     .progress__bar {
         display: flex;
         align-items: stretch;
@@ -131,12 +121,12 @@ const phaseGrow = phases.map((_, pi) =>
     }
     .progress__seg {
         position: relative;
-        flex-basis: 0; /* flex-grow alone sets the proportions */
+        flex-basis: 0;
         border-radius: 3px;
         background: rgba(242, 240, 236, 0.13);
         overflow: hidden;
     }
-    /* a wider break where one phase hands over to the next */
+
     .progress__seg--phase-end {
         margin-right: 7px;
     }
@@ -144,14 +134,14 @@ const phaseGrow = phases.map((_, pi) =>
     .progress__seg-fill {
         display: block;
         position: absolute;
-        inset: 0 auto 0 0;
-        width: 0;
+        inset: 0;
+        transform-origin: left;
+        transform: scaleX(0);
         border-radius: 3px;
         background: var(--text-bright);
-        transition: width 700ms cubic-bezier(0.215, 0.61, 0.355, 1);
+        transition: transform 700ms cubic-bezier(0.215, 0.61, 0.355, 1);
     }
 
-    /* labels centered under their phase's share of the bar */
     .progress__legend {
         display: flex;
         gap: 3px;
@@ -180,13 +170,13 @@ const phaseGrow = phases.map((_, pi) =>
     }
 
     function updateProgress(root: HTMLElement): void {
-        const start = new Date(root.dataset.start!).getTime();
-        const end = new Date(root.dataset.end!).getTime();
         const years: YearSpan[] = JSON.parse(root.dataset.years!);
         const now = Date.now();
         const clamp = (n: number) => Math.min(100, Math.max(0, n));
+        const fillOf = (y: YearSpan) => clamp((now - y.s) / (y.e - y.s)) * 100;
 
-        const totalPct = clamp(((now - start) / (end - start)) * 100);
+        const totalPct =
+            years.reduce((sum, y) => sum + fillOf(y), 0) / years.length;
         const currentYear = years.filter((y) => now >= y.s).length;
 
         const pctEl = root.querySelector<HTMLElement>("[data-pct]");
@@ -201,12 +191,11 @@ const phaseGrow = phases.map((_, pi) =>
 
         root.querySelectorAll<HTMLElement>("[data-seg-fill]").forEach(
             (el, i) => {
-                const y = years[i];
-                const pct = clamp(((now - y.s) / (y.e - y.s)) * 100);
-                el.style.width = "0%";
+                const pct = fillOf(years[i]);
+                el.style.transform = "scaleX(0)";
                 requestAnimationFrame(() => {
                     el.style.transitionDelay = `${i * 70}ms`; // fills left-to-right
-                    el.style.width = `${pct.toFixed(1)}%`;
+                    el.style.transform = `scaleX(${(pct / 100).toFixed(4)})`;
                 });
             },
         );

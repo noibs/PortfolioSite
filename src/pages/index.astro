@@ -1,6 +1,7 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import Tooltip from "../components/Tooltip.astro";
+import DenmarkTime from "../components/DenmarkTime.astro";
 import EducationProgress from "../components/EducationProgress.astro";
 import GithubLink from "../components/GithubLink.astro";
 import CopyEmail from "../components/CopyEmail.astro";
@@ -12,10 +13,10 @@ import "../styles/global.css";
         <main>
             <section id="hero">
                 <p>
-                    hi, im elliott. a 19-year-old from <button
-                        id="denmark"
-                        class="action">denmark</button
-                    > currently <Tooltip label="studying" width="260px">
+                    hi, im elliott. a 19-year-old from <DenmarkTime /> currently <Tooltip
+                        label="studying"
+                        width="260px"
+                    >
                         <EducationProgress />
                     </Tooltip> robotics at <a
                         href="https://www.sdu.dk/en"
@@ -72,7 +73,7 @@ import "../styles/global.css";
             padding: 2rem 1.5rem;
             max-width: 33rem;
             text-wrap: pretty;
-            animation: rise 750ms cubic-bezier(0.215, 0.61, 0.355, 1) backwards;
+            animation: rise 500ms cubic-bezier(0.215, 0.61, 0.355, 1) backwards;
         }
 
         p {
@@ -113,6 +114,12 @@ import "../styles/global.css";
             display: block;
             width: 100%;
             height: 100%;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            #hero {
+                animation: none;
+            }
         }
 
         @media screen and (max-width: 768px) {

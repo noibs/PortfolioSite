@@ -1,0 +1,52 @@
+---
+import Tooltip from "./Tooltip.astro";
+---
+
+<span class="dk" data-dk>
+    <Tooltip label="denmark" size="sm">
+        <span class="dk__body"
+            >odense · <span data-date></span> · <span data-time>00:00</span
+            ></span
+        >
+    </Tooltip>
+</span>
+
+<style>
+    .dk__body {
+        font-size: 0.86rem;
+        color: var(--text-dim);
+        white-space: nowrap;
+    }
+    .dk__time {
+        color: var(--text-bright);
+        font-weight: 500;
+        font-variant-numeric: tabular-nums;
+    }
+</style>
+
+<script>
+    const dateFmt = new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Europe/Copenhagen",
+        weekday: "long",
+    });
+    const timeFmt = new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Europe/Copenhagen",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+    });
+
+    function render(root: HTMLElement): void {
+        const now = new Date();
+        root.querySelector<HTMLElement>("[data-date]")!.textContent = dateFmt
+            .format(now)
+            .toLowerCase();
+        root.querySelector<HTMLElement>("[data-time]")!.textContent =
+            timeFmt.format(now);
+    }
+
+    document.querySelectorAll<HTMLElement>("[data-dk]").forEach((root) => {
+        render(root);
+        root.addEventListener("pointerenter", () => render(root));
+    });
+</script>
