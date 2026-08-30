@@ -18,9 +18,18 @@ a,
   text-decoration-thickness: 1px;
   text-underline-offset: 0.18em;
   text-decoration-color: color-mix(in oklch, var(--text-bright) 42%, transparent);
+  /* inline-block so transform: scale on :active applies. single-word triggers
+     don't wrap, so this doesn't change layout. */
+  display: inline-block;
   transition:
     text-decoration-color 200ms ease,
-    color 200ms ease;
+    color 200ms ease,
+    transform 120ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+a:active,
+.action:active {
+  transform: scale(0.97);
 }
 
 a { text-decoration-style: solid; }
@@ -68,10 +77,14 @@ a:focus-visible,
   visibility: hidden;
   pointer-events: none;
   transform: translateX(-50%) translateY(5px) scale(0.96);
+  /* cards are anchored above their trigger; growing from the bottom edge
+     means they visually emerge from the trigger rather than empty air */
+  transform-origin: 50% 100%;
   transition:
     opacity 200ms ease,
-    transform 200ms cubic-bezier(0.215, 0.61, 0.355, 1),
-
+    transform 200ms cubic-bezier(0.32, 0.72, 0, 1),
+    /* visibility is discrete — this delays the switch so opacity finishes
+       fading before the element becomes non-hittable on close */
     visibility 200ms;
   transition-delay: 0ms;
   z-index: 50;

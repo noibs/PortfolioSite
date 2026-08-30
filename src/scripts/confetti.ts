@@ -68,10 +68,23 @@ export function initConfetti() {
       requestAnimationFrame(frame);
   }
 
-  const denmark = document.getElementById("denmark");
-  denmark?.addEventListener("click", () => {
-      if (reduceMotion) return;
-      const r = denmark.getBoundingClientRect();
-      burst(r.left + r.width / 2, r.top + r.height / 2);
-  });
+  const COOLDOWN_MS = 300;
+  let lastBurstAt = 0;
+
+  document
+      .querySelectorAll<HTMLElement>("[data-confetti]")
+      .forEach((host) => {
+          host.addEventListener("click", (e) => {
+              if (reduceMotion) return;
+              const now = Date.now();
+              if (now - lastBurstAt < COOLDOWN_MS) return;
+              lastBurstAt = now;
+
+              // burst from the actual click target's center so it works
+              // whether the button is small or large inside the wrapper
+              const target = (e.target as HTMLElement).closest?.("button, a") ?? host;
+              const r = target.getBoundingClientRect();
+              burst(r.left + r.width / 2, r.top + r.height / 2);
+          });
+      });
 }

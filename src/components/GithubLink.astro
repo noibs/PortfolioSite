@@ -49,6 +49,29 @@ const { user, label = "github" } = Astro.props;
         border-radius: 2px;
         background: oklch(0.24 0.01 60);
     }
+
+    /* first-open cascade: each column pops in slightly after the previous,
+       column index passed to cells as --col inline. base delay waits for
+       the card's 200ms hover delay + 200ms fade so cells only start
+       appearing once the card itself is fully visible */
+    .gh__grid[data-cascade] :global(.gh__cell) {
+        animation: gh-cell-in 260ms cubic-bezier(0.32, 0.72, 0, 1) both;
+        animation-delay: calc(400ms + var(--col, 0) * 18ms);
+    }
+
+    @keyframes gh-cell-in {
+        from {
+            opacity: 0;
+            transform: scale(0.5);
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .gh__grid[data-cascade] :global(.gh__cell) {
+            animation: none;
+        }
+    }
+
     .gh__grid :global(.gh__cell[data-level="1"]) {
         background: oklch(0.38 0.02 60);
     }
@@ -71,6 +94,20 @@ const { user, label = "github" } = Astro.props;
         letter-spacing: 0.02em;
         text-align: right;
         font-variant-numeric: tabular-nums;
+        /* stagger: joins just after the grid so the card unfolds in two
+           beats rather than one block */
+        opacity: 0;
+        transform: translateY(3px);
+        transition:
+            opacity 180ms ease,
+            transform 180ms cubic-bezier(0.32, 0.72, 0, 1);
+    }
+
+    :global(.tip:hover) .gh__total,
+    :global(.tip:focus-within) .gh__total {
+        opacity: 1;
+        transform: translateY(0);
+        transition-delay: 280ms;
     }
 </style>
 
@@ -177,11 +214,14 @@ const { user, label = "github" } = Astro.props;
         const window = data.days.slice(startIdx, endIdx + 1);
 
         grid.innerHTML = "";
-        for (const day of window) {
+        for (let i = 0; i < window.length; i++) {
+            const day = window[i];
             const cell = document.createElement("i");
             cell.className = "gh__cell";
             cell.dataset.level = String(day.level);
             cell.title = `${day.date}: ${day.count} contribution${day.count === 1 ? "" : "s"}`;
+            // grid-auto-flow: column → cell index / 7 gives the column
+            cell.style.setProperty("--col", String(Math.floor(i / 7)));
             grid.appendChild(cell);
         }
 
@@ -195,6 +235,15 @@ const { user, label = "github" } = Astro.props;
         const user = root.dataset.user;
         if (!user) return;
         const cacheKey = `gh-contribs:${user}`;
+
+        // First hover / focus triggers the cell cascade (once). Subsequent
+        // opens just show the grid — a reveal on first read, no motion after.
+        const triggerCascade = () => {
+            const grid = root.querySelector<HTMLElement>("[data-grid]");
+            if (grid) grid.dataset.cascade = "true";
+        };
+        root.addEventListener("pointerenter", triggerCascade, { once: true });
+        root.addEventListener("focusin", triggerCascade, { once: true });
 
         const cached = readCache(cacheKey);
         if (cached) {
