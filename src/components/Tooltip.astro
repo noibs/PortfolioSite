@@ -50,7 +50,8 @@ const style = styleParts.length ? styleParts.join("; ") : undefined;
         .tip:hover .tip__card {
             opacity: 1;
             visibility: visible;
-            transform: translateX(-50%) translateY(0) scale(1);
+            transform: translateX(calc(-50% + var(--shift-x, 0px)))
+                translateY(0) scale(1);
             transition-delay: 200ms;
         }
     }
@@ -58,7 +59,8 @@ const style = styleParts.length ? styleParts.join("; ") : undefined;
     .tip:focus-within .tip__card {
         opacity: 1;
         visibility: visible;
-        transform: translateX(-50%) translateY(0) scale(1);
+        transform: translateX(calc(-50% + var(--shift-x, 0px))) translateY(0)
+            scale(1);
         transition-delay: 0ms;
     }
 
@@ -67,11 +69,130 @@ const style = styleParts.length ? styleParts.join("; ") : undefined;
             transition:
                 opacity 200ms ease,
                 visibility 200ms;
-            transform: translateX(-50%);
+            transform: translateX(calc(-50% + var(--shift-x, 0px)));
         }
         .tip:hover .tip__card,
         .tip:focus-within .tip__card {
-            transform: translateX(-50%);
+            transform: translateX(calc(-50% + var(--shift-x, 0px)));
         }
     }
+
+    /* grouped switching (only inside [data-tip-group]). declared after the
+       hover/focus rules so these win at equal specificity.
+       --warm: the incoming card skips the delay and entrance; only its
+       `translate` animates, gliding over from where the previous card was.
+       --snap: the outgoing card closes with no fade, so two cards never
+       overlap. */
+    .tip.tip--warm .tip__card {
+        transition: translate 240ms cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    .tip.tip--snap .tip__card {
+        transition: none;
+    }
 </style>
+
+<script>
+    import { place } from "../scripts/place";
+
+    // inside a [data-tip-group], moving to the next trigger while the previous
+    // card is still on screen (open, or mid fade-out) hands the card over
+    // instead of closing one and opening another: the old card vanishes and
+    // the new one appears in its place and glides to its own trigger. the
+    // trigger is "the old card is still visible", so brushing past a link
+    // whose card never opened doesn't count.
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+    const cardOf = (tip: HTMLElement) =>
+        tip.querySelector<HTMLElement>(".tip__card")!;
+    const isShowing = (card: HTMLElement) =>
+        parseFloat(getComputedStyle(card).opacity) > 0.01;
+
+    const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");
+
+    // the card opened by a tap on a touch screen; only one at a time
+    let tapped: HTMLElement | null = null;
+
+    function setTapped(tip: HTMLElement | null): void {
+        if (tapped && tapped !== tip) {
+            cardOf(tapped).classList.remove("is-open");
+        }
+        if (tapped && tip === null) {
+            // android does focus tapped buttons, and :focus-within would
+            // keep the card up; let go so it actually closes
+            tapped.querySelector<HTMLElement>(":scope > button")?.blur();
+        }
+        tapped = tip;
+        if (tip) {
+            const card = cardOf(tip);
+            place(card);
+            card.classList.add("is-open");
+        }
+    }
+
+    function handOver(group: HTMLElement, tip: HTMLElement): void {
+        const prev = [...group.querySelectorAll<HTMLElement>(".tip")].find(
+            (t) => t !== tip && isShowing(cardOf(t)),
+        );
+        if (!prev) return;
+
+        const prevCard = cardOf(prev);
+        const from = prevCard.getBoundingClientRect();
+
+        // a focused link (e.g. one just clicked) holds its card open through
+        // :focus-within; let it go so the old card can actually close
+        if (prev.contains(document.activeElement))
+            (document.activeElement as HTMLElement).blur();
+
+        prev.classList.add("tip--snap");
+        void prevCard.offsetWidth;
+        requestAnimationFrame(() => prev.classList.remove("tip--snap"));
+
+        tip.classList.add("tip--warm");
+        if (reduceMotion.matches) return;
+
+        // measure the new card at rest, start it where the old one was,
+        // then let the --warm transition carry it home
+        const card = cardOf(tip);
+        card.style.transition = "none";
+        card.style.translate = "0px 0px";
+        const to = card.getBoundingClientRect();
+        const dx = from.left + from.width / 2 - (to.left + to.width / 2);
+        card.style.translate = `${dx}px 0px`;
+        void card.offsetWidth;
+        card.style.transition = "";
+        card.style.translate = "0px 0px";
+    }
+
+    document.querySelectorAll<HTMLElement>(".tip").forEach((tip) => {
+        const card = tip.querySelector<HTMLElement>(".tip__card");
+        if (!card) return;
+        const group = tip.closest<HTMLElement>("[data-tip-group]");
+
+        const open = () => {
+            place(card);
+            if (group) handOver(group, tip);
+        };
+        const close = () => tip.classList.remove("tip--warm");
+
+        tip.addEventListener("pointerenter", open);
+        tip.addEventListener("focusin", open);
+        tip.addEventListener("pointerleave", close);
+        tip.addEventListener("focusout", close);
+
+        // touch screens have no hover, and iOS doesn't focus a tapped button
+        // either, so :focus-within never fires there. a tap on a button
+        // trigger (denmark, studying) toggles its card instead. link
+        // triggers (github, SDU, …) still go straight through to the page.
+        const button = tip.querySelector<HTMLButtonElement>(
+            ":scope > button",
+        );
+        button?.addEventListener("click", () => {
+            if (finePointer.matches) return;
+            setTapped(tapped === tip ? null : tip);
+        });
+    });
+
+    document.addEventListener("pointerdown", (e) => {
+        if (tapped && !tapped.contains(e.target as Node)) setTapped(null);
+    });
+</script>

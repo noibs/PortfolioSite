@@ -1,0 +1,271 @@
+---
+import Tooltip from "./Tooltip.astro";
+---
+
+<!-- only visible while spotify is playing. it always keeps its space in
+     the layout (it's the last line, so the space is invisible) so the
+     paragraph above never jumps when a song starts or stops. -->
+<p class="np" data-np>
+    listening to <Tooltip
+        label="…"
+        href="https://open.spotify.com"
+        width="250px"
+    >
+        <span class="np__card">
+            <img
+                class="np__art"
+                data-art
+                alt=""
+                width="56"
+                height="56"
+                decoding="async"
+                referrerpolicy="no-referrer"
+            />
+            <span class="np__meta">
+                <span class="np__song" data-song></span>
+                <span class="np__artist" data-artist></span>
+                <span class="np__album" data-album></span>
+            </span>
+            <span class="np__bar"><span class="np__fill" data-fill></span></span>
+            <span class="np__times">
+                <span data-elapsed>0:00</span><span data-total>0:00</span>
+            </span>
+        </span>
+    </Tooltip> by <span data-artist-inline></span>
+</p>
+
+<style>
+    .np {
+        align-self: flex-start;
+        margin: 0.35rem 0 0;
+        font-size: 0.95rem;
+        line-height: 1.62;
+        color: var(--text-muted);
+        text-wrap: pretty;
+
+        visibility: hidden;
+        opacity: 0;
+        transform: translateY(4px);
+        transition:
+            opacity 400ms ease,
+            transform 400ms cubic-bezier(0.215, 0.61, 0.355, 1),
+            visibility 400ms;
+    }
+
+    .np.is-playing {
+        visibility: visible;
+        opacity: 1;
+        transform: none;
+    }
+
+    .np :global(a) {
+        font-size: 1rem;
+    }
+
+    .np__card {
+        display: grid;
+        grid-template-columns: 56px minmax(0, 1fr);
+        column-gap: 12px;
+        row-gap: 10px;
+        align-items: center;
+        text-align: left;
+    }
+
+    .np__art {
+        display: block;
+        width: 56px;
+        height: 56px;
+        border-radius: 6px;
+        object-fit: cover;
+        background: oklch(0.22 0.008 60);
+    }
+
+    .np__meta {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        line-height: 1.3;
+    }
+
+    .np__song,
+    .np__artist,
+    .np__album {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .np__song {
+        color: var(--text-bright);
+        font-weight: 500;
+        font-size: 0.86rem;
+    }
+    .np__artist {
+        color: var(--text-dim);
+        font-size: 0.78rem;
+    }
+    .np__album {
+        color: var(--text-muted);
+        font-size: 0.72rem;
+        font-style: italic;
+    }
+
+    .np__bar {
+        grid-column: 1 / -1;
+        display: block;
+        height: 3px;
+        border-radius: 2px;
+        overflow: hidden;
+        background: color-mix(in oklch, var(--text-bright) 13%, transparent);
+    }
+
+    /* the fill runs as one linear animation lasting the whole track,
+       started at a negative delay equal to the time already played — the
+       browser keeps it in sync, no per-frame javascript */
+    .np__fill {
+        display: block;
+        height: 100%;
+        background: var(--text-bright);
+        transform-origin: left;
+        transform: scaleX(0);
+    }
+
+    @keyframes np-progress {
+        to {
+            transform: scaleX(1);
+        }
+    }
+
+    .np__times {
+        grid-column: 1 / -1;
+        display: flex;
+        justify-content: space-between;
+        margin-top: -4px;
+        font-size: 0.68rem;
+        color: var(--text-muted);
+        font-variant-numeric: tabular-nums;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .np {
+            transform: none;
+            transition:
+                opacity 400ms ease,
+                visibility 400ms;
+        }
+    }
+</style>
+
+<script>
+    import { onPresence, type Spotify } from "../scripts/presence";
+
+    const clock = (ms: number) => {
+        const s = Math.max(0, Math.floor(ms / 1000));
+        return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+    };
+    const clip = (s: string, n: number) =>
+        s.length > n ? s.slice(0, n - 1).trimEnd() + "…" : s;
+    const artists = (s: string) =>
+        s
+            .split(";")
+            .map((a) => a.trim())
+            .join(", ");
+
+    function init(root: HTMLElement): void {
+        const $ = <T extends HTMLElement>(sel: string) =>
+            root.querySelector<T>(sel)!;
+        const link = $<HTMLAnchorElement>(".tip a");
+        const art = $<HTMLImageElement>("[data-art]");
+        const fill = $("[data-fill]");
+        const elapsedEl = $("[data-elapsed]");
+
+        let current: Spotify | null = null;
+        let ticker: number | undefined;
+
+        const inlineArtist = $("[data-artist-inline]");
+
+        // the line shows every artist when it fits on one line, and only
+        // the first one when the full list would wrap. the full list is
+        // always in the card. (measuring works while the line is hidden:
+        // it keeps its layout box either way)
+        const wraps = () => {
+            const lh = parseFloat(getComputedStyle(root).lineHeight);
+            return root.getBoundingClientRect().height > lh * 1.5;
+        };
+        const fitArtists = () => {
+            if (!current) return;
+            const all = artists(current.artist).toLowerCase();
+            const first = current.artist.split(";")[0].trim().toLowerCase();
+            inlineArtist.textContent = clip(all, 40);
+            if (first !== all && wraps())
+                inlineArtist.textContent = clip(first, 40);
+        };
+
+        let resizeFrame = 0;
+        window.addEventListener("resize", () => {
+            cancelAnimationFrame(resizeFrame);
+            resizeFrame = requestAnimationFrame(fitArtists);
+        });
+        // the web font is wider or narrower than the fallback it replaces
+        document.fonts?.ready.then(fitArtists);
+
+        const tick = () => {
+            if (!current) return;
+            const { start, end } = current.timestamps;
+            elapsedEl.textContent = clock(
+                Math.min(Date.now() - start, end - start),
+            );
+        };
+
+        const show = (s: Spotify) => {
+            const { start, end } = s.timestamps;
+            const sameTrack =
+                current?.track_id === s.track_id && current?.song === s.song;
+
+            link.textContent = clip(s.song.toLowerCase(), 40);
+            link.href = s.track_id
+                ? `https://open.spotify.com/track/${s.track_id}`
+                : `https://open.spotify.com/search/${encodeURIComponent(`${s.song} ${s.artist}`)}`;
+
+            $("[data-song]").textContent = s.song;
+            $("[data-artist]").textContent = artists(s.artist);
+            $("[data-album]").textContent = s.album;
+            $("[data-total]").textContent = clock(end - start);
+            if (s.album_art_url && art.src !== s.album_art_url) {
+                art.src = s.album_art_url;
+                art.alt = `cover of ${s.album}`;
+            }
+
+            // restart the progress animation from the real position.
+            // skipped for presence updates within the same track (e.g. a
+            // status change) unless the position actually moved (a seek)
+            const moved =
+                !sameTrack ||
+                current!.timestamps.start !== start ||
+                current!.timestamps.end !== end;
+            if (moved) {
+                fill.style.animation = "none";
+                void fill.offsetWidth;
+                fill.style.animation = `np-progress ${end - start}ms linear ${start - Date.now()}ms forwards`;
+            }
+
+            current = s;
+            fitArtists();
+            tick();
+            window.clearInterval(ticker);
+            ticker = window.setInterval(tick, 1000);
+            root.classList.add("is-playing");
+        };
+
+        const hide = () => {
+            current = null;
+            window.clearInterval(ticker);
+            root.classList.remove("is-playing");
+        };
+
+        onPresence((p) =>
+            p?.listening_to_spotify && p.spotify ? show(p.spotify) : hide(),
+        );
+    }
+
+    document.querySelectorAll<HTMLElement>("[data-np]").forEach(init);
+</script>

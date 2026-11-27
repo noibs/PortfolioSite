@@ -4,49 +4,237 @@ import Tooltip from "./Tooltip.astro";
 
 <span class="dk" data-dk data-confetti>
     <Tooltip label="denmark" size="sm">
-        <span class="dk__body"
-            >odense · <span data-date></span> · <span data-time>00:00</span
-            ></span
-        >
+        <span class="dk__body">
+            <span data-place>odense</span> · <span data-date></span> ·{" "}
+            <span class="dk__time" data-time>
+                00:00
+            </span>
+        </span>
+        <span class="dk__status">
+            <span class="dk__dot" data-live hidden></span>
+            <span data-status></span>
+        </span>
     </Tooltip>
 </span>
 
 <style>
     .dk__body {
+        display: block;
         font-size: 0.86rem;
         color: var(--text-dim);
         white-space: nowrap;
+        text-align: center;
+    }
+    .dk__status {
+        display: block;
+        margin-top: 3px;
+        font-size: 0.78rem;
+        font-style: italic;
+        color: var(--text-dim);
+        text-align: center;
+        white-space: nowrap;
+        /* live statuses can be long (game names); never widen the card
+           past its max, trail off instead */
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     .dk__time {
         color: var(--text-bright);
         font-weight: 500;
         font-variant-numeric: tabular-nums;
     }
+
+    /* marks a status that is real (from discord) rather than guessed */
+    .dk__dot:not([hidden]) {
+        display: inline-block;
+        width: 5px;
+        height: 5px;
+        margin-right: 6px;
+        vertical-align: 1px;
+        border-radius: 50%;
+        background: var(--text-dim);
+        animation: dk-breathe 2.4s ease-in-out infinite;
+    }
+
+    @keyframes dk-breathe {
+        50% {
+            opacity: 0.35;
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .dk__dot:not([hidden]) {
+            animation: none;
+        }
+    }
 </style>
 
 <script>
-    const dateFmt = new Intl.DateTimeFormat("en-GB", {
-        timeZone: "Europe/Copenhagen",
-        weekday: "long",
-    });
-    const timeFmt = new Intl.DateTimeFormat("en-GB", {
-        timeZone: "Europe/Copenhagen",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-    });
+    import {
+        onPresence,
+        onKV,
+        kvText,
+        type Presence,
+    } from "../scripts/presence";
+
+    const HOME_PLACE = "odense";
+    const HOME_TZ = "Europe/Copenhagen";
+
+    // the `location` and `timezone` kv keys move the card while travelling.
+    // a timezone intl doesn't recognise is ignored (stays on home time)
+    let place = HOME_PLACE;
+    let tz = HOME_TZ;
+
+    interface Formatters {
+        date: Intl.DateTimeFormat;
+        time: Intl.DateTimeFormat;
+        hour: Intl.DateTimeFormat;
+    }
+    const formatters = new Map<string, Formatters>();
+
+    function fmt(zone: string): Formatters {
+        let f = formatters.get(zone);
+        if (!f) {
+            f = {
+                date: new Intl.DateTimeFormat("en-GB", {
+                    timeZone: zone,
+                    weekday: "long",
+                }),
+                time: new Intl.DateTimeFormat("en-GB", {
+                    timeZone: zone,
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: false,
+                }),
+                hour: new Intl.DateTimeFormat("en-GB", {
+                    timeZone: zone,
+                    hour: "numeric",
+                    hour12: false,
+                }),
+            };
+            formatters.set(zone, f);
+        }
+        return f;
+    }
+
+    function validZone(value: unknown): string | null {
+        const zone = kvText(value, 64);
+        if (!zone) return null;
+        try {
+            fmt(zone);
+            return zone;
+        } catch {
+            return null;
+        }
+    }
+
+    function guessStatus(hour: number, weekday: string): string {
+        if (hour < 7) return "(definitely asleep)";
+        if (hour < 9) return "(possibly asleep)";
+        if (hour < 16)
+            return weekday === "saturday" || weekday === "sunday"
+                ? "(probably tinkering)"
+                : "(probably in class)";
+        if (hour < 23) return "(probably awake)";
+        return "(should be asleep)";
+    }
+
+    const EDITOR =
+        /visual studio code|^code$|cursor|zed|vim|intellij|pycharm|webstorm|clion|sublime/i;
+
+    // file names stay private: only the language is shown
+    const LANG: Record<string, string> = {
+        ts: "typescript",
+        tsx: "typescript",
+        js: "javascript",
+        jsx: "javascript",
+        mjs: "javascript",
+        py: "python",
+        ipynb: "python",
+        astro: "astro",
+        rs: "rust",
+        c: "c",
+        h: "c",
+        cpp: "c++",
+        hpp: "c++",
+        cs: "c#",
+        java: "java",
+        kt: "kotlin",
+        go: "go",
+        lua: "lua",
+        md: "markdown",
+        css: "css",
+        scss: "scss",
+        html: "html",
+        sh: "shell",
+        m: "matlab",
+        ino: "arduino",
+    };
+
+    // what discord says i'm doing, or null to fall back to the guess
+    function liveStatus(p: Presence): string | null {
+        const acts = p.activities ?? [];
+
+        const editor = acts.find((a) => a.type === 0 && EDITOR.test(a.name));
+        if (editor) {
+            const text = `${editor.details ?? ""} ${editor.state ?? ""}`;
+            if (/portfoliosite/i.test(text)) return "(editing this very page)";
+            const ext = text.match(/\.([a-z0-9]+)\b/i)?.[1]?.toLowerCase();
+            const lang = ext ? LANG[ext] : undefined;
+            return lang ? `(writing some ${lang})` : "(writing code)";
+        }
+
+        const game = acts.find((a) => a.type === 0);
+        if (game) return `(playing ${game.name.toLowerCase()})`;
+
+        // music is deliberately skipped: the now-playing line under the
+        // survivors already says it, so this falls through to the status
+
+        switch (p.discord_status) {
+            case "online":
+                return p.active_on_discord_mobile &&
+                    !p.active_on_discord_desktop
+                    ? "(online, on my phone)"
+                    : "(online)";
+            case "idle":
+                return "(away from the keyboard)";
+            case "dnd":
+                return "(do not disturb)";
+            default:
+                return null;
+        }
+    }
+
+    let presence: Presence | null = null;
 
     function render(root: HTMLElement): void {
         const now = new Date();
-        root.querySelector<HTMLElement>("[data-date]")!.textContent = dateFmt
-            .format(now)
-            .toLowerCase();
+        const f = fmt(tz);
+        const weekday = f.date.format(now).toLowerCase();
+        const hour = parseInt(f.hour.format(now), 10) % 24;
+        const live = presence ? liveStatus(presence) : null;
+
+        root.querySelector<HTMLElement>("[data-place]")!.textContent = place;
+        root.querySelector<HTMLElement>("[data-date]")!.textContent = weekday;
         root.querySelector<HTMLElement>("[data-time]")!.textContent =
-            timeFmt.format(now);
+            f.time.format(now);
+        root.querySelector<HTMLElement>("[data-status]")!.textContent =
+            live ?? guessStatus(hour, weekday);
+        root.querySelector<HTMLElement>("[data-live]")!.hidden = !live;
     }
 
     document.querySelectorAll<HTMLElement>("[data-dk]").forEach((root) => {
         render(root);
-        root.addEventListener("pointerenter", () => render(root));
+        // keep the clock honest while the page sits open
+        setInterval(() => render(root), 30_000);
+        onPresence((p) => {
+            presence = p;
+            render(root);
+        });
+        onKV((kv) => {
+            place = kvText(kv.location, 24) ?? HOME_PLACE;
+            tz = validZone(kv.timezone) ?? HOME_TZ;
+            render(root);
+        });
     });
 </script>

@@ -61,7 +61,10 @@ const { email } = Astro.props;
 </style>
 
 <script>
+    import { place } from "../scripts/place";
+
     const HOLD_MS = 1400;
+    const isMac = /mac|iphone|ipad/i.test(navigator.userAgent);
 
     const CHECK_SVG =
         '<svg class="copy__check" width="11" height="11" ' +
@@ -81,6 +84,7 @@ const { email } = Astro.props;
 
         const show = (html: string) => {
             card.innerHTML = html;
+            if (!card.classList.contains("is-open")) place(card);
             card.classList.add("is-open");
             window.clearTimeout(timer);
             timer = window.setTimeout(
@@ -101,7 +105,7 @@ const { email } = Astro.props;
                 const sel = window.getSelection();
                 sel?.removeAllRanges();
                 sel?.addRange(range);
-                show("press ⌘C to copy");
+                show(`press ${isMac ? "⌘C" : "ctrl+c"} to copy`);
             }
         });
     }

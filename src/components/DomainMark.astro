@@ -1,0 +1,201 @@
+<div class="mark" data-mark>
+    <button class="mark__name" type="button" aria-expanded="false">
+        <span class="sr-only">
+            elliott.hu, short for elliott hartmann ulriksen
+        </span>
+        <span class="mark__text" aria-hidden="true">
+            elliott
+            <span
+                class="mark__cell mark__cell--out"
+                style="--d: 0ms; --d-out: 140ms"
+            >
+                <span>.</span>
+            </span>
+            <span class="mark__cell" style="--d: 0ms; --d-out: 140ms">
+                <span>&nbsp;</span>
+            </span>
+            <b>h</b>
+            <span class="mark__cell" style="--d: 70ms; --d-out: 70ms">
+                <span>artmann&nbsp;</span>
+            </span>
+            <b>u</b>
+            <span class="mark__cell" style="--d: 140ms; --d-out: 0ms">
+                <span>lriksen</span>
+            </span>
+        </span>
+    </button>
+    <!-- only filled in for hungarian-language browsers (see script) -->
+    <span class="mark__note" id="mark-note" data-note hidden></span>
+</div>
+
+<style>
+    .mark {
+        /* absolute, not fixed: anchored to the page rather than the screen,
+           so it travels with the content when a browser rubber-bands the
+           page on pull-to-refresh instead of staying put in the corner */
+        position: absolute;
+        top: clamp(16px, 2.4vw, 28px);
+        left: clamp(16px, 2.6vw, 32px);
+        z-index: 2;
+        font-family: var(--font);
+        animation: mark-in 700ms ease 500ms backwards;
+    }
+
+    @keyframes mark-in {
+        from {
+            opacity: 0;
+        }
+    }
+
+    .mark__name {
+        display: block;
+        padding: 0;
+        border: 0;
+        background: none;
+        font: inherit;
+        font-size: 0.88rem;
+        line-height: 1.4;
+        letter-spacing: 0.01em;
+        color: var(--text-muted);
+        white-space: nowrap;
+        cursor: default;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    .mark__name:focus-visible {
+        outline: 1px solid var(--text-dim);
+        outline-offset: 4px;
+        border-radius: 2px;
+    }
+
+    .mark__name b {
+        font-weight: inherit;
+        color: inherit;
+        transition: color 300ms ease;
+    }
+
+    /* each cell is an inline grid column animating between 0fr and 1fr:
+       the dot folds away, a space opens, the surnames grow out of the h
+       and u. opening runs left to right, closing right to left */
+    .mark__cell {
+        display: inline-grid;
+        grid-template-columns: 0fr;
+        vertical-align: top;
+        transition: grid-template-columns 380ms cubic-bezier(0.32, 0.72, 0, 1)
+            var(--d-out, 0ms);
+    }
+
+    .mark__cell > span {
+        min-width: 0;
+        overflow: hidden;
+    }
+
+    .mark__cell--out {
+        grid-template-columns: 1fr;
+    }
+
+    .mark.is-open .mark__cell {
+        grid-template-columns: 1fr;
+        transition: grid-template-columns 560ms cubic-bezier(0.32, 0.72, 0, 1)
+            var(--d, 0ms);
+    }
+
+    .mark.is-open .mark__cell--out {
+        grid-template-columns: 0fr;
+    }
+
+    /* once unfolded, the initials light up to show where the domain came from */
+    .mark.is-open .mark__name b {
+        color: var(--text-bright);
+        transition-delay: 200ms;
+    }
+
+    .mark__note {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        margin-top: 2px;
+        font-size: 0.72rem;
+        font-style: italic;
+        color: var(--text-muted);
+        white-space: nowrap;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 160ms ease;
+    }
+
+    .mark.is-open .mark__note {
+        opacity: 1;
+        transition: opacity 320ms ease 480ms;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .mark {
+            animation: none;
+        }
+        .mark__cell,
+        .mark.is-open .mark__cell {
+            transition: none;
+        }
+    }
+
+    .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+</style>
+
+<script>
+    const HOVER_DELAY = 80; // skip unfolding when the pointer just passes by
+
+    const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const hungarian = (navigator.languages ?? [navigator.language]).some((l) =>
+        /^hu\b/i.test(l),
+    );
+
+    document.querySelectorAll<HTMLElement>("[data-mark]").forEach((root) => {
+        const button = root.querySelector<HTMLButtonElement>("button")!;
+
+        if (hungarian) {
+            const note = root.querySelector<HTMLElement>("[data-note]")!;
+            note.textContent =
+                "(szia! sorry, not hungarian, its just my initials)";
+            note.hidden = false;
+            button.setAttribute("aria-describedby", note.id);
+        }
+
+        let timer: number | undefined;
+        const set = (open: boolean) => {
+            window.clearTimeout(timer);
+            root.classList.toggle("is-open", open);
+            button.setAttribute("aria-expanded", String(open));
+        };
+
+        root.addEventListener("pointerenter", () => {
+            if (!finePointer.matches) return;
+            window.clearTimeout(timer);
+            timer = window.setTimeout(() => set(true), HOVER_DELAY);
+        });
+        root.addEventListener("pointerleave", () => {
+            if (!finePointer.matches) return;
+            set(false);
+        });
+
+        button.addEventListener("focus", () => {
+            if (button.matches(":focus-visible")) set(true);
+        });
+        button.addEventListener("blur", () => set(false));
+
+        // touch has no hover: a tap toggles it, a tap anywhere else closes it
+        button.addEventListener("click", () => {
+            if (!finePointer.matches) set(!root.classList.contains("is-open"));
+        });
+        document.addEventListener("pointerdown", (e) => {
+            if (!root.contains(e.target as Node)) set(false);
+        });
+    });
+</script>

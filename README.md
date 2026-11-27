@@ -1,46 +1,23 @@
-# Astro Starter Kit: Basics
+# elliott.hu
 
-```sh
-npm create astro@latest -- --template basics
-```
+my personal site. one paragraph, a few things to hover, and some bits that update live. it's up at [elliott.hu](https://elliott.hu).
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+the `.hu` isn't hungary, it's my initials: **e**lliott **h**artmann **u**lriksen.
 
-## 🚀 Project Structure
+## what's on it
 
-Inside of your Astro project, you'll see the following folders and files:
+- **denmark**: the time in odense and what i'm up to right now, read from my discord status. when there's nothing to read, it guesses from the time of day.
+- **studying**: how far i am through my bachelor's and master's in robotics at SDU.
+- **github**: my contributions over the past year.
+- **the email**: click it to copy.
+- **a few survivors**: the projects that actually work.
+- **listening to**: what i'm playing on spotify. it only shows up while something is playing.
 
-```text
-/
-├── public/
-│   └── favicon.svg
-├── src
-│   ├── assets
-│   │   └── astro.svg
-│   ├── components
-│   │   └── Welcome.astro
-│   ├── layouts
-│   │   └── Layout.astro
-│   └── pages
-│       └── index.astro
-└── package.json
-```
+## live data
 
-To learn more about the folder structure of an Astro project, refer to [our guide on project structure](https://docs.astro.build/en/basics/project-structure/).
+all of it is optional. if a service is down, the page falls back to plain text.
 
-## 🧞 Commands
+- **discord presence** comes from [lanyard](https://github.com/phineas/lanyard).
 
-All commands are run from the root of the project, from a terminal:
+- **github contributions** come from [github-contributions-api](https://github.com/grubersjoe/github-contributions-api), cached in the browser for a day.
 
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).

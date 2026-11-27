@@ -10,12 +10,12 @@ const { user, label = "github" } = Astro.props;
 ---
 
 <span class="gh" data-gh data-user={user}>
-    <Tooltip label={label} href={`https://github.com/${user}`} maxWidth="440px">
+    <Tooltip label={label} href={`https://github.com/${user}`} maxWidth="36rem">
         <span class="gh__loading" data-loading>fetching activity…</span>
         <span class="gh__body" data-body hidden>
             <span class="gh__grid" data-grid aria-hidden="true"></span>
             <span class="gh__total">
-                <span data-total>0</span> contributions in the past 6 months
+                <span data-total>0</span> contributions in the past year
             </span>
         </span>
     </Tooltip>
@@ -35,9 +35,14 @@ const { user, label = "github" } = Astro.props;
         gap: 10px;
     }
 
+    /* a full year is 53 week-columns. the grid gets a fixed width that also
+       fits inside the card on a phone (minus the card's padding + border),
+       and the cell size is derived from it */
     .gh__grid {
-        --cell: clamp(8px, 0.6vw, 12px);
-        --gap: clamp(2px, 0.15vw, 3px);
+        --weeks: 53;
+        --w: min(36rem, calc(100vw - 2rem - 30px));
+        --gap: clamp(1px, 0.18vw, 3px);
+        --cell: calc((var(--w) - (var(--weeks) - 1) * var(--gap)) / var(--weeks));
         display: grid;
         grid-template-rows: repeat(7, var(--cell));
         grid-auto-flow: column;
@@ -47,16 +52,16 @@ const { user, label = "github" } = Astro.props;
 
     .gh__grid :global(.gh__cell) {
         border-radius: 2px;
-        background: oklch(0.24 0.01 60);
+        background: oklch(0.25 0.015 255);
     }
 
     /* first-open cascade: each column pops in slightly after the previous,
-       column index passed to cells as --col inline. base delay waits for
-       the card's 200ms hover delay + 200ms fade so cells only start
-       appearing once the card itself is fully visible */
+       column index passed to cells as --col inline. the base delay is the
+       card's 200ms hover delay plus a few frames, so the sweep runs while
+       the card is still popping in (~0.45s for all 53 columns) */
     .gh__grid[data-cascade] :global(.gh__cell) {
-        animation: gh-cell-in 260ms cubic-bezier(0.32, 0.72, 0, 1) both;
-        animation-delay: calc(400ms + var(--col, 0) * 18ms);
+        animation: gh-cell-in 220ms cubic-bezier(0.32, 0.72, 0, 1) both;
+        animation-delay: calc(240ms + var(--col, 0) * 4ms);
     }
 
     @keyframes gh-cell-in {
@@ -72,17 +77,21 @@ const { user, label = "github" } = Astro.props;
         }
     }
 
+    /* blue ramp, the page's only accent color. empty days are the same hue
+       at near-zero chroma so the whole grid reads as one cool family.
+       chroma peaks at level 3 and eases off at level 4: a light blue at
+       full chroma turns neon on the dark card */
     .gh__grid :global(.gh__cell[data-level="1"]) {
-        background: oklch(0.38 0.02 60);
+        background: oklch(0.36 0.085 256);
     }
     .gh__grid :global(.gh__cell[data-level="2"]) {
-        background: oklch(0.55 0.045 55);
+        background: oklch(0.49 0.13 255);
     }
     .gh__grid :global(.gh__cell[data-level="3"]) {
-        background: oklch(0.72 0.09 60);
+        background: oklch(0.63 0.15 251);
     }
     .gh__grid :global(.gh__cell[data-level="4"]) {
-        background: oklch(0.86 0.13 70);
+        background: oklch(0.77 0.12 244);
     }
     .gh__grid :global(.gh__cell.is-empty) {
         background: transparent;
@@ -167,7 +176,7 @@ const { user, label = "github" } = Astro.props;
     async function fetchContributions(user: string): Promise<Cached | null> {
         try {
             const res = await fetch(
-                `https://github-contributions-api.deno.dev/${user}.json?flat=true`,
+                `https://github-contributions-api.jogruber.de/v4/${user}?y=last`,
             );
             if (!res.ok) {
                 console.warn(`[GithubLink] fetch failed: ${res.status}`);
@@ -203,17 +212,26 @@ const { user, label = "github" } = Astro.props;
             return;
         }
 
-        const WEEKS = 26;
+        // 52 full weeks plus the current, partial week. the window ends today
+        // (the in-progress week shows as a short last column, like github's)
+        // and starts on a sunday so each row is a fixed weekday.
+        const WEEKS = 53;
+        const today = new Date().toISOString().slice(0, 10);
         let endIdx = data.days.length - 1;
-        while (endIdx >= 0) {
-            const d = new Date(data.days[endIdx].date + "T00:00:00Z");
-            if (d.getUTCDay() === 6) break;
-            endIdx--;
-        }
-        const startIdx = Math.max(0, endIdx - WEEKS * 7 + 1);
+        while (endIdx > 0 && data.days[endIdx].date > today) endIdx--;
+        const endDow = new Date(
+            data.days[endIdx].date + "T00:00:00Z",
+        ).getUTCDay();
+        const startIdx = Math.max(0, endIdx - endDow - (WEEKS - 1) * 7);
         const window = data.days.slice(startIdx, endIdx + 1);
 
         grid.innerHTML = "";
+        const lead = new Date(window[0].date + "T00:00:00Z").getUTCDay();
+        for (let i = 0; i < lead; i++) {
+            const pad = document.createElement("i");
+            pad.className = "gh__cell is-empty";
+            grid.appendChild(pad);
+        }
         for (let i = 0; i < window.length; i++) {
             const day = window[i];
             const cell = document.createElement("i");
@@ -221,7 +239,7 @@ const { user, label = "github" } = Astro.props;
             cell.dataset.level = String(day.level);
             cell.title = `${day.date}: ${day.count} contribution${day.count === 1 ? "" : "s"}`;
             // grid-auto-flow: column → cell index / 7 gives the column
-            cell.style.setProperty("--col", String(Math.floor(i / 7)));
+            cell.style.setProperty("--col", String(Math.floor((i + lead) / 7)));
             grid.appendChild(cell);
         }
 

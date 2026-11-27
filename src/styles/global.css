@@ -1,8 +1,11 @@
 :root {
     --bg: oklch(0.14 0.006 60);
     --surface: oklch(0.16 0.007 60);
-    --text-muted: oklch(0.47 0.008 60);
-    --text-dim: oklch(0.63 0.010 60);
+    /* contrast vs --bg / --surface: muted 4.6 / 4.5, dim 6.9 / 6.7,
+       bright 16.7 / 16.3. muted is the floor for WCAG AA (4.5:1) on both,
+       so don't go darker */
+    --text-muted: oklch(0.58 0.008 60);
+    --text-dim: oklch(0.68 0.010 60);
     --text-bright: oklch(0.94 0.006 65);
     --font: "Newsreader", var(--font-newsreader), Georgia, serif;
     --size: clamp(1.2rem, 1rem + 0.55vw, 1.3rem);
@@ -76,7 +79,9 @@ a:focus-visible,
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transform: translateX(-50%) translateY(5px) scale(0.96);
+  /* --shift-x nudges the card back on-screen when centering on the trigger
+     would push it past a viewport edge (set by Tooltip's placement script) */
+  transform: translateX(calc(-50% + var(--shift-x, 0px))) translateY(5px) scale(0.96);
   /* cards are anchored above their trigger; growing from the bottom edge
      means they visually emerge from the trigger rather than empty air */
   transform-origin: 50% 100%;
@@ -95,13 +100,13 @@ a:focus-visible,
 .card.is-open {
   opacity: 1;
   visibility: visible;
-  transform: translateX(-50%) translateY(0);
+  transform: translateX(calc(-50% + var(--shift-x, 0px))) translateY(0);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .card,
   .card.is-open {
-    transform: translateX(-50%);
+    transform: translateX(calc(-50% + var(--shift-x, 0px)));
     transition:
       opacity 200ms ease,
       visibility 200ms;

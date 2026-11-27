@@ -5,15 +5,19 @@ import DenmarkTime from "../components/DenmarkTime.astro";
 import EducationProgress from "../components/EducationProgress.astro";
 import GithubLink from "../components/GithubLink.astro";
 import CopyEmail from "../components/CopyEmail.astro";
+import NowPlaying from "../components/NowPlaying.astro";
+import DomainMark from "../components/DomainMark.astro";
+import { age } from "../scripts/age";
 import "../styles/global.css";
 ---
 
 <Layout>
     <div id="container">
+        <DomainMark />
         <main>
             <section id="hero">
-                <p>
-                    hi, im elliott. a 19-year-old from <DenmarkTime /> currently <Tooltip
+                <p class="bio" data-bio>
+                    hi, im elliott. a <span data-age>{age()}</span>-year-old from <DenmarkTime /> currently <Tooltip
                         label="studying"
                         width="260px"
                     >
@@ -25,18 +29,88 @@ import "../styles/global.css";
                     >. i love coding my own solutions to minor inconveniences i
                     meet in my daily life, which means i have a graveyard of
                     half-finished projects and a few that are actually of use.
-                    most of them live on <GithubLink user="noibs" />. if you
-                    want to get in contact with me, shoot me an email at <CopyEmail
-                        email="hi@elliott.hu"
-                    />.
+                    most of them live on <GithubLink user="noibs" />.<span
+                        class="now"
+                        data-now
+                        hidden> at the moment im <span data-now-text></span></span
+                    >{" "}if you want to get in contact with me, shoot me an
+                    email at <CopyEmail email="hi@elliott.hu" />{" "}or find me <span
+                        class="nowrap"
+                        >on <a
+                            href="https://www.linkedin.com/in/elliott-hartmann-ulriksen-4b8326447/"
+                            target="_blank"
+                            rel="noopener">linkedin</a
+                        >.</span
+                    >
                 </p>
+
+                <p class="projects" data-tip-group>
+                    a few survivors: <Tooltip
+                        label="togtider"
+                        href="https://togtider-revamp.vercel.app"
+                        size="sm"
+                    >
+                        <span class="projects__blurb"
+                            >a dashboard for danish train times, at a glance</span
+                        >
+                    </Tooltip> · <Tooltip
+                        label="retro pastel"
+                        href="https://github.com/noibs/retro-pastel-theme"
+                        size="sm"
+                    >
+                        <span class="projects__blurb"
+                            >a jekyll theme that glows like an old terminal</span
+                        >
+                    </Tooltip> · <Tooltip
+                        label="mnist"
+                        href="https://github.com/noibs/MNIST-Project"
+                        size="sm"
+                    >
+                        <span class="projects__blurb"
+                            >teaching python to read handwritten digits</span
+                        >
+                    </Tooltip>
+                </p>
+
+                <NowPlaying />
             </section>
         </main>
     </div>
 
     <script>
         import { initConfetti } from "../scripts/confetti";
+        import { onKV, kvText } from "../scripts/presence";
+        import { keepRagEven } from "../scripts/evenRag";
+        import { age } from "../scripts/age";
         initConfetti();
+
+        // the html carries the age at build time; correct it if a birthday
+        // has passed since the last deploy (before the line-evening runs)
+        const ageEl = document.querySelector<HTMLElement>("[data-age]");
+        if (ageEl) ageEl.textContent = String(age());
+
+        const bio = document.querySelector<HTMLElement>("[data-bio]");
+        const reflowBio = bio ? keepRagEven(bio) : () => {};
+
+        // `now` kv key: an extra sentence in the paragraph, "at the moment im …",
+        // placed after the github sentence so "most of them" still refers
+        // to the projects.
+        // the value is the rest of the sentence; a period is added unless it
+        // already ends in punctuation. unset = paragraph reads as before.
+        const now = document.querySelector<HTMLElement>("[data-now]");
+        const nowText = document.querySelector<HTMLElement>("[data-now-text]");
+        if (now && nowText) {
+            onKV((kv) => {
+                const text = kvText(kv.now, 90);
+                if (text) {
+                    nowText.textContent = /[.!?…]$/.test(text)
+                        ? text
+                        : `${text}.`;
+                }
+                now.hidden = !text;
+                reflowBio();
+            });
+        }
     </script>
 
     <style>
@@ -50,6 +124,7 @@ import "../styles/global.css";
         }
 
         main {
+            position: relative;
             margin: 0;
             height: 100%;
             display: flex;
@@ -65,7 +140,21 @@ import "../styles/global.css";
             text-rendering: optimizeLegibility;
         }
 
+        /* faint film grain so the empty space reads as paper, not a void.
+           sits under the content and ignores the pointer. */
+        main::after {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            opacity: 0.05;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+            background-size: 160px 160px;
+        }
+
         #hero {
+            position: relative;
+            z-index: 1;
             display: flex;
             align-items: center;
             flex-direction: column;
@@ -73,7 +162,6 @@ import "../styles/global.css";
             padding: 2rem 1.5rem;
             max-width: 33rem;
             text-wrap: pretty;
-            animation: rise 500ms cubic-bezier(0.215, 0.61, 0.355, 1) backwards;
         }
 
         p {
@@ -81,6 +169,55 @@ import "../styles/global.css";
             font-weight: 400;
             padding: 0;
             margin: 0;
+            animation: rise 500ms cubic-bezier(0.215, 0.61, 0.355, 1) backwards;
+        }
+
+        /* evenRag (see script) may narrow the bio slightly to even out its
+           line endings; keep it pinned left, in line with the lines below,
+           rather than re-centered */
+        .bio {
+            align-self: flex-start;
+        }
+
+        /* keeps "on linkedin." together so the last link is never stranded
+           on its own line. kept to two words on purpose: a longer unbreakable
+           chunk leaves the line above it visibly short. (a non-breaking space
+           doesn't hold next to the inline-block links, hence nowrap) */
+        .nowrap {
+            white-space: nowrap;
+        }
+
+        /* fades in when the `now` sentence appears, so a live change
+           doesn't just snap into the paragraph */
+        .now:not([hidden]) {
+            animation: now-in 500ms ease both;
+        }
+
+        @keyframes now-in {
+            from {
+                opacity: 0;
+            }
+        }
+
+        /* the survivors line arrives a beat after the bio — two breaths,
+           not one block */
+        .projects {
+            align-self: flex-start;
+            margin-top: 1.4rem;
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            animation-delay: 140ms;
+        }
+
+        .projects :global(a) {
+            font-size: 1rem;
+        }
+
+        .projects__blurb {
+            display: block;
+            font-size: 0.82rem;
+            color: var(--text-dim);
+            text-align: center;
         }
 
         @keyframes rise {
@@ -117,20 +254,20 @@ import "../styles/global.css";
         }
 
         @media (prefers-reduced-motion: reduce) {
-            #hero {
+            p {
                 animation: none;
             }
         }
 
         @media screen and (max-width: 768px) {
-            #container {
-                display: flex;
-                flex-direction: column;
+            /* sit the text a little above true center — optically centered,
+               and it keeps tooltips clear of the top edge less often */
+            main {
+                align-items: flex-start;
             }
 
             #hero {
-                display: block;
-                padding-top: 10%;
+                padding-top: 22vh;
             }
         }
     </style>
